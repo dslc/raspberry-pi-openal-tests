@@ -12,6 +12,18 @@
 #include <pthread.h>
 #include <termios.h>
 
+/**
+ * A simple MP3 streamer for demo purposes.
+ *
+ * This program uses two threads:
+ *  - one for retrieving the data over the network (network_proc);
+ *  - the other for the actual MP3 decoding (decode_proc).
+ *
+ * The mpg123 library is used for the audio decoding, libCURL for the
+ * network functionality.
+ *
+ */
+
 #define BLOCK_SIZE 4096
 
 #define handle_error_ret_null(msg) \
