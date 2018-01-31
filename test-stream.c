@@ -64,8 +64,11 @@ void *network_proc(void *url) {
     }
     curl_easy_setopt(curl, CURLOPT_URL, (char *)url);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, on_progress);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, feed_data);
+
+    printf("Trying to stream audio from %s ...\n\n", url);
 
     res = curl_easy_perform(curl);
     if (res == CURLE_ABORTED_BY_CALLBACK) {
@@ -121,8 +124,8 @@ void *decode_proc(void *arg) {
     mpg123_getformat(mh, &dsp_srate, &dsp_channels, &encoding);
     mpg123_format_none(mh);
     mpg123_format(mh, dsp_srate, dsp_channels, encoding);
-    printf("Format info available. Channels = %d, sample-rate = %ld, encoding = %d\n",
-            dsp_channels, dsp_srate, encoding);
+    printf("Loaded audio stream ... channels = %d, sample-rate = %ld Hz.\n",
+            dsp_channels, dsp_srate);
 
     // We now have the format information. Move on to actual playback.
     // But first we need to configure the audio device with the relevant parameters.

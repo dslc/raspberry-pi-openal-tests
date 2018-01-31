@@ -12,6 +12,31 @@ On a Raspberry Pi, you may need to run
 
 to load the OSS compatibility for ALSA.
 
+# Building
+
+## Dependencies
+
+The only dependencies are:
+
+  - libCURL
+  - mpg123
+
+To install these on a Debian-like system, try the following as root:
+
+    apt-get install libcurl4-gnutls-dev libmpg123-dev 
+
+## Running make
+
+Simple type
+
+    make test-stream
+
+to build the program, and
+
+    make clean
+
+to remove it. (There is no `make install` option currently.)
+
 # Running
 
 The binary should be invoked as follows.
@@ -21,5 +46,9 @@ The binary should be invoked as follows.
 Example:
 
     ./test-stream /dev/dsp https://designtrail.net/~david/audio/test1.mp3
+
+## Controls
+
+Type `p` to pause / resume. Type `q` to exit.
 
 
