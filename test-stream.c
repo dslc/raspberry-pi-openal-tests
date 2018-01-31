@@ -1,6 +1,7 @@
 
 #include <mpg123.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <sys/soundcard.h>
 #include <sys/ioctl.h>
@@ -83,6 +84,7 @@ void *decode_proc(void *arg) {
 
     // Allow user key-press (for play/pause).
     tcgetattr(fileno(stdin), &orig_term_attr);
+    memcpy(&new_term_attr, &orig_term_attr, sizeof(struct termios));
     new_term_attr.c_lflag &= ~(ECHO|ICANON);
 	new_term_attr.c_cc[VTIME] = 0;
     new_term_attr.c_cc[VMIN] = 0;
@@ -124,10 +126,10 @@ void *decode_proc(void *arg) {
         switch (ch) {
             case 'p':
                 pause = ~pause;
-                printf("%s ... ", pause ? "Pause" : "Resume");
+                printf("%s ... \n", pause ? "Pause" : "Resume");
                 break;
             case 'q':
-                printf("Exiting ... ");
+                printf("Exiting ... \n");
                 exit_loop = 1;
                 break;
             default:
@@ -162,7 +164,12 @@ int main(int argc, char *argv[]) {
     char *url;
 
     if (argc < 3) {
-        fprintf(stderr, "You must specify the audio device and URL!\n");
+        fprintf(stderr,
+                "MP3 streaming test\n\n"
+                "Usage: %s <audio_device> <url>\n"
+                "  <audio_device> could be /dev/dsp for example.\n"
+                "  <url> should be the full remote URL.\n\n\n",
+                argv[0]);
         return 1;
     }
 

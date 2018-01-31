@@ -1,0 +1,25 @@
+# MP3 streaming tests
+
+Some basic tests with MP3 streaming using libCURL and the mpg123 library.
+
+# Audio API
+
+In this version the OSS (Open Sound System) API is used for simplicity. 
+
+On a Raspberry Pi, you may need to run
+
+    sudo modprobe snd-pcm-oss
+
+to load the OSS compatibility for ALSA.
+
+# Running
+
+The binary should be invoked as follows.
+
+    ./test-stream <audio-device> <url>
+
+Example:
+
+    ./test-stream /dev/dsp https://designtrail.net/~david/audio/test1.mp3
+
+
