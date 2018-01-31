@@ -124,13 +124,13 @@ void *decode_proc(void *arg) {
             return NULL;
         }
         if (ret == MPG123_NEED_MORE) {
+            // Wait briefly before checking again if more data is available.
             tm.tv_sec = 0;
             tm.tv_usec = 50000;
             FD_ZERO(&rset);
             FD_SET(0, &rset);
             select(1, &rset, NULL, NULL, &tm);
         }
-        // printf("%zd bytes decoded\n", decoded_count);
     } while (ret != MPG123_NEW_FORMAT);
 
     mpg123_getformat(mh, &dsp_srate, &dsp_channels, &encoding);
@@ -149,6 +149,7 @@ void *decode_proc(void *arg) {
     if (res) { handle_error_ret_null("ioctl set sample-rate"); }
 
     do {
+        // Check user input
         ch = fgetc(stdin);
         switch (ch) {
             case 'p':
@@ -177,6 +178,7 @@ void *decode_proc(void *arg) {
         write(dsp, out, decoded_count);
     } while (ret != MPG123_ERR && !exit_loop);
 
+    // Restore terminal attributes.
     tcsetattr(fileno(stdin), TCSANOW, &orig_term_attr);
     return NULL;
 }
@@ -234,6 +236,7 @@ int main(int argc, char *argv[]) {
     res = pthread_create(&decode_t, NULL, decode_proc, NULL);
     if (res) { handle_error("pthread_create"); }
 
+    // Wait for threads to finish.
     pthread_join(network_t, NULL);
     pthread_join(decode_t, NULL);
 
