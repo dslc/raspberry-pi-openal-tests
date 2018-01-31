@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/soundcard.h>
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <curl/curl.h>
 #include <pthread.h>
 #include <termios.h>
@@ -49,7 +51,7 @@ void *network_proc(void *url) {
     curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "Could not initialize cURL context. Aborting ...\n");
-        return;
+        return NULL;
     }
     curl_easy_setopt(curl, CURLOPT_URL, (char *)url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, feed_data);
@@ -57,7 +59,7 @@ void *network_proc(void *url) {
     res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         fprintf(stderr, "cURL failed: %s\n", curl_easy_strerror(res));
-        return;
+        return NULL;
     }
 
     curl_easy_cleanup(curl);
