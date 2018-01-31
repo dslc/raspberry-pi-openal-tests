@@ -24,6 +24,7 @@ mpg123_handle *mh = NULL;
 char *audio_dev;
 int dsp;
 CURL *curl;
+int exit_loop = 0;
 
 void mpg123_cleanup(mpg123_handle *mh) {
     mpg123_close(mh);
@@ -43,6 +44,13 @@ size_t feed_data(char *data, size_t size, size_t nmemb, void *ignore) {
     return count;
 }
 
+int on_progress(void *ignore, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+    if (exit_loop) {
+        return 1;
+    }
+    return 0;
+}
+
 void *network_proc(void *url) {
     size_t read_count, total_count;
     unsigned char in[BLOCK_SIZE];
@@ -55,12 +63,16 @@ void *network_proc(void *url) {
         return NULL;
     }
     curl_easy_setopt(curl, CURLOPT_URL, (char *)url);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, on_progress);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, feed_data);
 
     res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
+    if (res == CURLE_ABORTED_BY_CALLBACK) {
+        fprintf(stderr, "Request to abort by user. Exiting ...\n");
+    }
+    else if (res != CURLE_OK) {
         fprintf(stderr, "cURL failed: %s\n", curl_easy_strerror(res));
-        return NULL;
     }
 
     curl_easy_cleanup(curl);
@@ -74,7 +86,7 @@ void *decode_proc(void *arg) {
     int ch;
     size_t decoded_count = 0;
     off_t ret;
-    int res, exit_loop = 0, pause = 0;
+    int res, pause = 0;
     int dsp_format = AFMT_S16_LE;
     int dsp_channels = 0;
     long dsp_srate = 0;
