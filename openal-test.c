@@ -9,7 +9,11 @@
 #include <termios.h>
 #include <string.h>
 
-#define BLOCK_SIZE 2048
+/**
+ *  With this block size - at 48000 Hz, stereo, with 16-bits / sample - each buffer
+ *  will provides .25 seconds of audio.
+ */
+#define BLOCK_SIZE 48000
 #define N_BUFFERS 5
 
 #define handle_error(msg) \
@@ -150,13 +154,19 @@ static int decoder_tick(player_ctx_t *player) {
                 printf("Pausing\n");
                 break;
             }
+            alGetError();
             alGetSourcei(player->source, AL_SOURCE_STATE, &state);
+            /*if (state == AL_STOPPED) {
+                alSourcePlay(player->source);
+            }*/
             alGetSourcei(player->source, AL_BUFFERS_PROCESSED, &processed);
+            alGetSourcei(player->source, AL_BUFFERS_QUEUED, &queued);
             if (processed == 0) {
                 break;
             }
             ret = mpg123_read(player->mh, out, sizeof(out), &count);
             if (ret == MPG123_NEED_MORE || count == 0) {
+                fprintf(stderr, "Incomplete audio chunk ...\n");
                 break;
             }
             alSourceUnqueueBuffers(player->source, 1, &buf_id);
@@ -170,10 +180,6 @@ static int decoder_tick(player_ctx_t *player) {
                 fprintf(stderr, "Error adding buffer to queue. Aborting ...\n");
                 return 1;
             }
-            /*if (state != AL_PLAYING) {
-                printf("Finished! ...\n");
-                return 1;
-            }*/
             break;
         case ST_PAUSED:
             if (ch == 'p') {
@@ -350,9 +356,11 @@ int main(int argc, char *argv[]) {
 
     // Begin stream using cURL.
     printf("Trying to stream audio from %s ...\n\n", url);
+    printf(" - Press 'p' to pause / resume.\n");
+    printf(" - Press 'q' to quit.\n\n");
     res = curl_easy_perform(curl);
     if (res == CURLE_ABORTED_BY_CALLBACK) {
-        fprintf(stderr, "Request to abort by user. Exiting ...\n");
+        fprintf(stderr, "Playback terminated. Exiting ...\n");
     }
     else if (res != CURLE_OK) {
         fprintf(stderr, "cURL failed: %s\n", curl_easy_strerror(res));
