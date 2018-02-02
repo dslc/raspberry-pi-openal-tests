@@ -16,9 +16,6 @@
 #define BLOCK_SIZE 48000
 #define N_BUFFERS 5
 
-#define handle_error(msg) \
-    do { perror(msg); return 1;} while (0)
-
 typedef enum {
     ST_WAIT_FORMAT_KNOWN,
     ST_WAIT_PLAY,
@@ -26,10 +23,7 @@ typedef enum {
     ST_PAUSED,
 } player_state_t;
 
-#define FLAG_FINISHED 0x01
-
 typedef struct {
-    unsigned char flags;
     mpg123_handle *mh;
 } feeder_ctx_t;
 
@@ -156,9 +150,6 @@ static int decoder_tick(player_ctx_t *player) {
             }
             alGetError();
             alGetSourcei(player->source, AL_SOURCE_STATE, &state);
-            /*if (state == AL_STOPPED) {
-                alSourcePlay(player->source);
-            }*/
             alGetSourcei(player->source, AL_BUFFERS_PROCESSED, &processed);
             alGetSourcei(player->source, AL_BUFFERS_QUEUED, &queued);
             if (processed == 0) {
@@ -166,7 +157,6 @@ static int decoder_tick(player_ctx_t *player) {
             }
             ret = mpg123_read(player->mh, out, sizeof(out), &count);
             if (ret == MPG123_NEED_MORE || count == 0) {
-                fprintf(stderr, "Incomplete audio chunk ...\n");
                 break;
             }
             alSourceUnqueueBuffers(player->source, 1, &buf_id);

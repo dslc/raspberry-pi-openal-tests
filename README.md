@@ -1,6 +1,6 @@
 # MP3 streaming tests
 
-Some basic tests with MP3 streaming using libCURL, the mpg123 library and the OpenAL API.
+Some basic MP3 streaming tests using libCURL, the mpg123 library and the OpenAL API. The primary target is the Raspberry Pi - but these tests should compile and run on most / all Linux systems.
 
 # Building
 
@@ -18,7 +18,7 @@ To install these on a Debian-like system, try the following as root:
 
 Note for Raspberry Pi: If using the apt repositories for Raspbian GNU/Linux, you may have problems with version 1:1.17.2-4 of libopenal-dev. Attempting playback with this version yielded an "Illegal instruction" error. If this is the case, you may need to compile OpenAL from scratch.
 
-## Running make
+## Using GNU make
 
 Simple type
 
@@ -29,6 +29,14 @@ to build the program, and
     make clean
 
 to remove it. (There is no `make install` option currently.)
+
+## Using xmake
+
+If you prefer to use `xmake` ( https://xmake.io/ ), use
+
+    xmake -r
+
+to build or re-build the project.
 
 # Running
 
