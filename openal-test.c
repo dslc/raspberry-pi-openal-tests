@@ -8,12 +8,14 @@
 #include <curl/curl.h>
 #include <termios.h>
 #include <string.h>
+#include <unistd.h>
 
 /**
  *  With this block size - at 48000 Hz, stereo, with 16-bits / sample - each buffer
  *  will provides .25 seconds of audio.
  */
 #define BLOCK_SIZE 48000
+#define UPDATE_QUEUE_INTERVAL 50000 // microseconds
 #define N_BUFFERS 5
 
 typedef enum {
@@ -92,20 +94,10 @@ static int decoder_tick(player_ctx_t *player) {
                 }
                 switch (channels) {
                     case 1:
-                        if (encoding & MPG123_ENC_16) {
-                            player->format = AL_FORMAT_MONO16;
-                        }
-                        else if (encoding & MPG123_ENC_8) {
-                            player->format = AL_FORMAT_MONO8;
-                        }
+                        player->format = encoding & MPG123_ENC_8 ? AL_FORMAT_MONO8 : AL_FORMAT_MONO16;
                         break;
                     case 2:
-                        if (encoding & MPG123_ENC_16) {
-                            player->format = AL_FORMAT_STEREO16;
-                        }
-                        else if (encoding & MPG123_ENC_8) {
-                            player->format = AL_FORMAT_STEREO8;
-                        }
+                        player->format = encoding & MPG123_ENC_8 ? AL_FORMAT_STEREO8 : AL_FORMAT_STEREO16;
                         break;
                     default:
                         fprintf(stderr, "Unsupported channel count: %d. Aborting ...\n", channels);
@@ -360,6 +352,10 @@ int main(int argc, char *argv[]) {
     }
 
     do {
+        // Even at a high sample-rate (96000), the chosen buffer size should provide
+        // 125 ms audio (for 16-bit stereo) - so it's okay to pause before checking
+        //  the buffer queue again.
+        usleep(UPDATE_QUEUE_INTERVAL);
         rc = decoder_tick(&player);
     } while (!rc);
 
