@@ -6,6 +6,8 @@
 #include <sys/select.h>
 #include <fcntl.h>
 #include <curl/curl.h>
+#include <termios.h>
+#include <string.h>
 
 #define BLOCK_SIZE 2048
 #define N_BUFFERS 5
@@ -70,9 +72,15 @@ static int decoder_tick(player_ctx_t *player) {
     unsigned char out[BLOCK_SIZE];
     ALint state, queued, processed;
     ALuint buf_id;
+    int ch;
 
     count = 0;
     ret = MPG123_OK;
+    ch = fgetc(stdin);
+    if (ch == 'q') {
+        printf("Exiting on request of user ...\n");
+        return 1;
+    }
     switch (player->state) {
         case ST_WAIT_FORMAT_KNOWN:
             ret = mpg123_read(player->mh, out, sizeof(out), &count);
@@ -136,6 +144,12 @@ static int decoder_tick(player_ctx_t *player) {
             }
             break;
         case ST_PLAYING:
+            if (ch == 'p') {
+                player->state = ST_PAUSED;
+                alSourcePause(player->source);
+                printf("Pausing\n");
+                break;
+            }
             alGetSourcei(player->source, AL_SOURCE_STATE, &state);
             alGetSourcei(player->source, AL_BUFFERS_PROCESSED, &processed);
             if (processed == 0) {
@@ -161,6 +175,13 @@ static int decoder_tick(player_ctx_t *player) {
                 return 1;
             }*/
             break;
+        case ST_PAUSED:
+            if (ch == 'p') {
+                player->state = ST_PLAYING;
+                alSourcePlay(player->source);
+                printf("Resuming\n");
+            }
+            break;
         default:
             break;
     }
@@ -184,6 +205,8 @@ int on_progress(void *_player, curl_off_t dltotal, curl_off_t dlnow, curl_off_t 
 
 static int feeder_init(feeder_ctx_t *feeder, mpg123_handle *mh) {
     feeder->mh = mh;
+
+    return 0;
 }
 
 static int player_init(player_ctx_t *player, mpg123_handle *mh) {
@@ -262,6 +285,14 @@ static mpg123_handle *mpg123_init_l(mpg123_handle *mh) {
     return mh;
 }
 
+void usage(char *program_name) {
+    fprintf(stderr,
+            "MP3 streaming test with OpenAL\n\n"
+            "Usage: %s <url>\n"
+            "  <url> should be the full remote URL.\n\n\n",
+            program_name);
+}
+
 int main(int argc, char *argv[]) {
     mpg123_handle *mh = NULL;
     feeder_ctx_t feeder;
@@ -270,9 +301,10 @@ int main(int argc, char *argv[]) {
     CURLcode res;
     CURL *curl;
     char *url;
+    struct termios orig_term_attr, new_term_attr;
 
     if (argc < 2) {
-        fprintf(stderr, "You must specify a URL to stream!\n");
+        usage(argv[0]);
         return 1;
     }
 
@@ -300,13 +332,24 @@ int main(int argc, char *argv[]) {
     rc = player_init(&player, mh);
     if (rc) {
         fprintf(stderr, "Could not initialize player. Aborting ...\n");
+        return 1;
     }
 
     rc = feeder_init(&feeder, mh);
     if (rc) {
         fprintf(stderr, "Could not initialize feeder. Aborting ...\n");
+        return 1;
     }
 
+    // Allow user key-press (for play/pause).
+    tcgetattr(fileno(stdin), &orig_term_attr);
+    memcpy(&new_term_attr, &orig_term_attr, sizeof(struct termios));
+    new_term_attr.c_lflag &= ~(ECHO|ICANON);
+	new_term_attr.c_cc[VTIME] = 0;
+    new_term_attr.c_cc[VMIN] = 0;
+    tcsetattr(fileno(stdin), TCSANOW, &new_term_attr);
+
+    // Begin stream using cURL.
     printf("Trying to stream audio from %s ...\n\n", url);
     res = curl_easy_perform(curl);
     if (res == CURLE_ABORTED_BY_CALLBACK) {
@@ -326,6 +369,8 @@ int main(int argc, char *argv[]) {
     curl_easy_cleanup(curl);
     player_deinit(&player);
     mpg123_cleanup(mh);
+    // Restore terminal attributes.
+    tcsetattr(fileno(stdin), TCSANOW, &orig_term_attr);
 
     return 0;
 }

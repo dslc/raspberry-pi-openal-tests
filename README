@@ -38,7 +38,7 @@ to remove it. (There is no `make install` option currently.)
 
 The binary should be invoked as follows.
 
-    ./openal-test <audio-device> <url>
+    ./openal-test <url>
 
 Example:
 
