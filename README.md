@@ -16,7 +16,9 @@ To install these on a Debian-like system, try the following as root:
 
     apt-get install libcurl4-gnutls-dev libmpg123-dev libopenal-dev
 
-Note for Raspberry Pi: If using the apt repositories for Raspbian GNU/Linux, you may have problems with version 1:1.17.2-4 of libopenal-dev. Attempting playback with this version yielded an "Illegal instruction" error. If this is the case, you may need to compile OpenAL from scratch.
+### Raspberry Pi users - libopenal-dev
+
+If using the apt repositories for Raspbian GNU/Linux, you may have problems with version 1:1.17.2-4 of `libopenal-dev`. Attempting playback with this version yielded an "Illegal instruction" error. If this is the case, you may need to compile OpenAL from scratch. The latest tarball can be downloaded from http://kcat.strangesoft.net/openal.html#download .
 
 ## Using GNU make
 
