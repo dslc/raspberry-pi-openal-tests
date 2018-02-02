@@ -212,8 +212,6 @@ static int feeder_init(feeder_ctx_t *feeder, mpg123_handle *mh) {
 static int player_init(player_ctx_t *player, mpg123_handle *mh) {
     ALCenum err;
 
-    alGetError();
-
     player->state = ST_WAIT_FORMAT_KNOWN;
     player->next_buf = 0;
     player->sample_rate = 48000;
@@ -234,6 +232,7 @@ static int player_init(player_ctx_t *player, mpg123_handle *mh) {
     }
     alcMakeContextCurrent(player->ctx);
 
+    alGetError();
     player->source = 0;
     alGenSources(1, &player->source);
     if ((err = alGetError()) != AL_NO_ERROR) {
