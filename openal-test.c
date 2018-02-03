@@ -70,11 +70,11 @@ static int decoder_tick(player_ctx_t *player) {
     int channels, encoding;
     size_t count;
     static size_t offset;
-    size_t total = 0;
     unsigned char out[BLOCK_SIZE];
     ALint state, queued, processed;
     ALuint buf_id;
     int ch;
+    static int i = 0;
 
     count = 0;
     ret = MPG123_OK;
@@ -118,6 +118,7 @@ static int decoder_tick(player_ctx_t *player) {
                 printf("Starting playback ...\n");
                 alSourcePlay(player->source);
                 player->state = ST_PLAYING;
+                offset = 0;
                 break;
             }
             ret = mpg123_read(player->mh, out+offset, sizeof(out)-offset, &count);
@@ -148,24 +149,40 @@ static int decoder_tick(player_ctx_t *player) {
             alGetError();
             alGetSourcei(player->source, AL_SOURCE_STATE, &state);
             alGetSourcei(player->source, AL_BUFFERS_PROCESSED, &processed);
-            alGetSourcei(player->source, AL_BUFFERS_QUEUED, &queued);
-            if (processed == 0) {
-                break;
-            }
-            ret = mpg123_read(player->mh, out, sizeof(out), &count);
-            if (ret == MPG123_NEED_MORE || count == 0) {
-                break;
-            }
-            alSourceUnqueueBuffers(player->source, 1, &buf_id);
-            alBufferData(buf_id, player->format, out, (ALsizei) count, player->sample_rate);
             if ((err = alGetError()) != AL_NO_ERROR) {
-                fprintf(stderr, "Error adding data to buffer %d. Aborting ...\n", queued);
+                fprintf(stderr, "Error examining buffer queue. Aborting ...\n");
                 return 1;
             }
-            alSourceQueueBuffers(player->source, 1, &buf_id);
-            if ((err = alGetError()) != AL_NO_ERROR) {
-                fprintf(stderr, "Error adding buffer to queue. Aborting ...\n");
-                return 1;
+            if (processed) {
+                alSourceUnqueueBuffers(player->source, 1, &buf_id);
+                if ((err = alGetError()) != AL_NO_ERROR) {
+                    fprintf(stderr, "Error removing buffer from queue. Aborting ...\n");
+                    return 1;
+                }
+                ret = mpg123_read(player->mh, out+offset, sizeof(out)-offset, &count);
+                offset += count;
+                if (count == 0) {
+                    break;
+                }
+                alBufferData(buf_id, player->format, out, (ALsizei) offset, player->sample_rate);
+                offset = 0;
+                if ((err = alGetError()) != AL_NO_ERROR) {
+                    fprintf(stderr, "Error adding data to buffer %d. Aborting ...\n", buf_id);
+                    return 1;
+                }
+                alSourceQueueBuffers(player->source, 1, &buf_id);
+                if ((err = alGetError()) != AL_NO_ERROR) {
+                    fprintf(stderr, "Error adding buffer to queue. Aborting ...\n");
+                    return 1;
+                }
+            }
+            if (state != AL_PLAYING && state != AL_PAUSED) {
+                alGetSourcei(player->source, AL_BUFFERS_QUEUED, &queued);
+                if (queued == 0) {
+                    printf("Playback finished. Exiting ...\n");
+                    return 1;
+                }
+                alSourcePlay(player->source);
             }
             break;
         case ST_PAUSED:
@@ -178,7 +195,6 @@ static int decoder_tick(player_ctx_t *player) {
         default:
             break;
     }
-    total += count;
     if (ret == MPG123_ERR) {
         printf("Error decoding: %s\n", mpg123_plain_strerror(ret));
         return 1;

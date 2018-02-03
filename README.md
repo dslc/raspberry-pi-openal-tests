@@ -21,10 +21,16 @@ To install these on a Debian-like system, try the following as root:
 If using the apt repositories for Raspbian GNU/Linux, you may have problems with version 1:1.17.2-4 of `libopenal-dev`. Attempting playback with this version yielded an "Illegal instruction" error. If this is the case, you may need to compile OpenAL from scratch.
 
 First of all install [CMake](https://cmake.org/ "CMake website").
+
     sudo apt-get install cmake
 or
+
     su
     apt-get install cmake
+
+Remove the default OpenAL library and header files that are installed.
+
+    apt-get remove libopenal*
 
 Then download a recent version of OpenAL soft from either the [website](http://kcat.strangesoft.net/openal.html#download) or [Github repository](https://github.com/kcat/openal-soft). If using the tarball from the website, for example, the following should work.
 
