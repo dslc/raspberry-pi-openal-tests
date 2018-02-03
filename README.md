@@ -16,9 +16,24 @@ To install these on a Debian-like system, try the following as root:
 
     apt-get install libcurl4-gnutls-dev libmpg123-dev libopenal-dev
 
-### Raspberry Pi users - libopenal-dev
+### Installing OpenAL library
 
-If using the apt repositories for Raspbian GNU/Linux, you may have problems with version 1:1.17.2-4 of `libopenal-dev`. Attempting playback with this version yielded an "Illegal instruction" error. If this is the case, you may need to compile OpenAL from scratch. The latest tarball can be downloaded from http://kcat.strangesoft.net/openal.html#download .
+If using the apt repositories for Raspbian GNU/Linux, you may have problems with version 1:1.17.2-4 of `libopenal-dev`. Attempting playback with this version yielded an "Illegal instruction" error. If this is the case, you may need to compile OpenAL from scratch.
+
+First of all install [CMake](https://cmake.org/ "CMake website").
+    sudo apt-get install cmake
+or
+    su
+    apt-get install cmake
+
+Then download a recent version of OpenAL soft from either the [website](http://kcat.strangesoft.net/openal.html#download) or [Github repository](https://github.com/kcat/openal-soft). If using the tarball from the website, for example, the following should work.
+
+    tar xf openal-soft-1.18.2.tar.bz2
+    cd openal-soft-1.18.2
+    cd build
+    cmake ..
+    make
+    sudo make install
 
 ## Using GNU make
 
