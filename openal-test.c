@@ -81,6 +81,7 @@ static int decoder_tick(player_ctx_t *player) {
     ch = fgetc(stdin);
     if (ch == 'q') {
         printf("Exiting on request of user ...\n");
+        alSourceStop(player->source);
         return 1;
     }
     switch (player->state) {
@@ -261,6 +262,12 @@ static int player_init(player_ctx_t *player, mpg123_handle *mh) {
 }
 
 static void player_deinit(player_ctx_t *player) {
+    ALint processed;
+    ALuint buf_ids[N_BUFFERS];
+
+    alGetSourcei(player->source, AL_BUFFERS_PROCESSED, &processed);
+    alSourceUnqueueBuffers(player->source, processed, buf_ids);
+
     alDeleteBuffers(N_BUFFERS, player->buffers);
     alDeleteSources(1, &player->source);
     alcMakeContextCurrent(NULL);
