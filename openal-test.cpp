@@ -11,12 +11,6 @@
 
 #define UPDATE_QUEUE_INTERVAL 50000 // microseconds
 
-static void mpg123_cleanup(mpg123_handle *mh) {
-    mpg123_close(mh);
-    mpg123_delete(mh);
-    mpg123_exit();
-}
-
 static size_t feeder_tick(char *data, size_t size, size_t nmemb, void *_player) {
     static size_t total = 0;
     int err;
@@ -42,31 +36,6 @@ int on_progress(void *_player, curl_off_t dltotal, curl_off_t dlnow, curl_off_t 
     return rc;
 }
 
-static mpg123_handle *mpg123_init_l(mpg123_handle *mh) {
-    int err = MPG123_OK;
-
-    err = mpg123_init();
-    if (err != MPG123_OK) {
-        fprintf(stderr, "Decoder initialization failed: %s\n",  mpg123_plain_strerror(err));
-        mpg123_cleanup(mh);
-        return NULL;
-    }
-    mh = mpg123_new(NULL, &err);
-    if (mh == NULL) {
-        fprintf(stderr, "Decoder initialization failed: %s\n",  mpg123_plain_strerror(err));
-        mpg123_cleanup(mh);
-        return NULL;
-    }
-    err = mpg123_open_feed(mh);
-    if (err != MPG123_OK) {
-        fprintf(stderr, "Could not initialize bit stream ...\n");
-        mpg123_cleanup(mh);
-        return NULL;
-    }
-
-    return mh;
-}
-
 void usage(char *program_name) {
     fprintf(stderr,
             "MP3 streaming test with OpenAL\n\n"
@@ -76,7 +45,6 @@ void usage(char *program_name) {
 }
 
 int main(int argc, char *argv[]) {
-    mpg123_handle *mh = NULL;
     int rc;
     CURLcode res;
     Player *player;
@@ -95,13 +63,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    mh = mpg123_init_l(mh);
-    if (mh == NULL) {
-        fprintf(stderr, "Could not initialize mpg123 handle. Aborting ...\n");
-        return 1;
-    }
-
-    player = new Player(mh);
+    player = new Player();
 
     url = argv[1];
     curl_easy_setopt(curl, CURLOPT_URL, (char *)url);
@@ -145,7 +107,6 @@ int main(int argc, char *argv[]) {
 
     curl_easy_cleanup(curl);
     delete(player);
-    mpg123_cleanup(mh);
     // Restore terminal attributes.
     tcsetattr(fileno(stdin), TCSANOW, &orig_term_attr);
 

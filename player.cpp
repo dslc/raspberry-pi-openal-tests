@@ -1,12 +1,26 @@
 #include "player.hpp"
 #include <stdio.h>
 
-Player::Player(mpg123_handle *decoder) {
+Player::Player() {
+    int mpg123_err = MPG123_OK;
     ALCenum err; 
     this->m_state = ST_WAIT_FORMAT_KNOWN;
     this->m_sampleRate = 48000;
     this->m_format = AL_FORMAT_STEREO16;
-    this->m_decoder = decoder;
+
+    // Initialize the mp3 decoder
+    mpg123_err = mpg123_init();
+    if (mpg123_err != MPG123_OK) {
+        fprintf(stderr, "Decoder initialization failed: %s\n",  mpg123_plain_strerror(mpg123_err));
+    }
+    this->m_decoder = mpg123_new(NULL, &mpg123_err);
+    if (this->m_decoder == NULL) {
+        fprintf(stderr, "Decoder initialization failed: %s\n",  mpg123_plain_strerror(mpg123_err));
+    }
+    mpg123_err = mpg123_open_feed(this->m_decoder);
+    if (mpg123_err != MPG123_OK) {
+        fprintf(stderr, "Could not initialize bit stream ...\n");
+    }
 
     // Use the default OpenAL device.
     this->m_device = alcOpenDevice(NULL);
@@ -39,6 +53,12 @@ Player::~Player() {
     ALint processed;
     ALuint buf_ids[N_BUFFERS];
 
+    // De-initialize mp3 decoder
+    mpg123_close(this->m_decoder);
+    mpg123_delete(this->m_decoder);
+    mpg123_exit();
+
+    // De-initialize OpenAL stuff ...
     alGetSourcei(this->m_source, AL_BUFFERS_PROCESSED, &processed);
     alSourceUnqueueBuffers(this->m_source, processed, buf_ids);
 

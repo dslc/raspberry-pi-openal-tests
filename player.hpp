@@ -20,7 +20,7 @@ typedef enum {
 
 class Player {
     public:
-        Player(mpg123_handle *);
+        Player();
         ~Player();
         int tick(void);
         mpg123_handle *getDecoder(void);
