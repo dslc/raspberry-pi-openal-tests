@@ -1,0 +1,196 @@
+#include "player.hpp"
+#include <stdio.h>
+
+Player::Player(mpg123_handle *decoder) {
+    ALCenum err; 
+    this->m_state = ST_WAIT_FORMAT_KNOWN;
+    this->m_sampleRate = 48000;
+    this->m_format = AL_FORMAT_STEREO16;
+    this->m_decoder = decoder;
+
+    // Use the default OpenAL device.
+    this->m_device = alcOpenDevice(NULL);
+    if (this->m_device == NULL) {
+        fprintf(stderr, "Could not open OpenAL device.\n");
+    }
+
+    this->m_ctx = alcCreateContext(this->m_device, NULL);
+    if (this->m_ctx == NULL) {
+        fprintf(stderr, "Could not create OpenAL context: %s\n");
+    }
+    alcMakeContextCurrent(this->m_ctx);
+
+    alGetError();
+    this->m_source = 0;
+    alGenSources(1, &this->m_source);
+    if ((err = alGetError()) != AL_NO_ERROR) {
+        fprintf(stderr, "Could not generate OpenAL source: %d\n", err);
+    }
+    alSourceRewind(this->m_source);
+    alSourcei(this->m_source, AL_BUFFER, 0);
+
+    alGenBuffers(N_BUFFERS, this->m_buffers);
+    if ((err = alGetError()) != AL_NO_ERROR) {
+        fprintf(stderr, "Could not generate OpenAL buffers: %d\n", err);
+    }
+}
+
+Player::~Player() {
+    ALint processed;
+    ALuint buf_ids[N_BUFFERS];
+
+    alGetSourcei(this->m_source, AL_BUFFERS_PROCESSED, &processed);
+    alSourceUnqueueBuffers(this->m_source, processed, buf_ids);
+
+    alDeleteBuffers(N_BUFFERS, this->m_buffers);
+    alDeleteSources(1, &this->m_source);
+    alcMakeContextCurrent(NULL);
+    alcDestroyContext(this->m_ctx);
+    alcCloseDevice(this->m_device);
+}
+
+int Player::tick(void) {
+    off_t ret;
+    ALenum err;
+    long rate;
+    int channels, encoding;
+    size_t count;
+    static size_t offset;
+    unsigned char out[BLOCK_SIZE];
+    ALint state, queued, processed;
+    ALuint buf_id;
+    int ch;
+    static int i = 0;
+
+    count = 0;
+    ret = MPG123_OK;
+    ch = fgetc(stdin);
+    if (ch == 'q') {
+        printf("Exiting on request of user ...\n");
+        alSourceStop(this->m_source);
+        return 1;
+    }
+    switch (this->m_state) {
+        case ST_WAIT_FORMAT_KNOWN:
+            ret = mpg123_read(this->m_decoder, out, sizeof(out), &count);
+            if (ret == MPG123_NEW_FORMAT) {
+                mpg123_getformat(this->m_decoder, &rate, &channels, &encoding);
+                printf("Format - sample-rate: %ld, channel count: %d\n", rate, channels);
+                this->m_sampleRate = rate;
+                if (!(encoding & MPG123_ENC_8 || encoding & MPG123_ENC_16)) {
+                    fprintf(stderr, "Unsupported bit-depth. Aborting ...\n");
+                    return 1;
+                }
+                switch (channels) {
+                    case 1:
+                        this->m_format = encoding & MPG123_ENC_8 ? AL_FORMAT_MONO8 : AL_FORMAT_MONO16;
+                        break;
+                    case 2:
+                        this->m_format = encoding & MPG123_ENC_8 ? AL_FORMAT_STEREO8 : AL_FORMAT_STEREO16;
+                        break;
+                    default:
+                        fprintf(stderr, "Unsupported channel count: %d. Aborting ...\n", channels);
+                        return 1;
+                }
+                mpg123_format_none(this->m_decoder);
+                mpg123_format(this->m_decoder, rate, channels, encoding);
+                this->m_state = ST_WAIT_PLAY;
+                offset = 0;
+            }
+            break;
+        case ST_WAIT_PLAY:
+            alGetSourcei(this->m_source, AL_BUFFERS_QUEUED, &queued);
+            // Once the buffer queue is full, start playing.
+            if (queued == N_BUFFERS) {
+                printf("Starting playback ...\n");
+                alSourcePlay(this->m_source);
+                this->m_state = ST_PLAYING;
+                offset = 0;
+                break;
+            }
+            ret = mpg123_read(this->m_decoder, out+offset, sizeof(out)-offset, &count);
+            offset += count;
+            if (count == 0) {
+                break;
+            }
+            alGetError();
+            alBufferData(this->m_buffers[queued], this->m_format, out, (ALsizei) offset, this->m_sampleRate);
+            offset = 0;
+            if ((err = alGetError()) != AL_NO_ERROR) {
+                fprintf(stderr, "Error adding data to buffer %d. Aborting ...\n", queued);
+                return 1;
+            }
+            alSourceQueueBuffers(this->m_source, 1, &this->m_buffers[queued]);
+            if ((err = alGetError()) != AL_NO_ERROR) {
+                fprintf(stderr, "Error adding buffer to queue. Aborting ...\n");
+                return 1;
+            }
+            break;
+        case ST_PLAYING:
+            if (ch == 'p') {
+                this->m_state = ST_PAUSED;
+                alSourcePause(this->m_source);
+                printf("Pausing\n");
+                break;
+            }
+            alGetError();
+            alGetSourcei(this->m_source, AL_SOURCE_STATE, &state);
+            alGetSourcei(this->m_source, AL_BUFFERS_PROCESSED, &processed);
+            if ((err = alGetError()) != AL_NO_ERROR) {
+                fprintf(stderr, "Error examining buffer queue. Aborting ...\n");
+                return 1;
+            }
+            if (processed) {
+                alSourceUnqueueBuffers(this->m_source, 1, &buf_id);
+                if ((err = alGetError()) != AL_NO_ERROR) {
+                    fprintf(stderr, "Error removing buffer from queue. Aborting ...\n");
+                    return 1;
+                }
+                ret = mpg123_read(this->m_decoder, out+offset, sizeof(out)-offset, &count);
+                offset += count;
+                if (count == 0) {
+                    break;
+                }
+                alBufferData(buf_id, this->m_format, out, (ALsizei) offset, this->m_sampleRate);
+                offset = 0;
+                if ((err = alGetError()) != AL_NO_ERROR) {
+                    fprintf(stderr, "Error adding data to buffer %d. Aborting ...\n", buf_id);
+                    return 1;
+                }
+                alSourceQueueBuffers(this->m_source, 1, &buf_id);
+                if ((err = alGetError()) != AL_NO_ERROR) {
+                    fprintf(stderr, "Error adding buffer to queue. Aborting ...\n");
+                    return 1;
+                }
+            }
+            if (state != AL_PLAYING && state != AL_PAUSED) {
+                alGetSourcei(this->m_source, AL_BUFFERS_QUEUED, &queued);
+                if (queued == 0) {
+                    printf("Playback finished. Exiting ...\n");
+                    return 1;
+                }
+                alSourcePlay(this->m_source);
+            }
+            break;
+        case ST_PAUSED:
+            if (ch == 'p') {
+                this->m_state = ST_PLAYING;
+                alSourcePlay(this->m_source);
+                printf("Resuming\n");
+            }
+            break;
+        default:
+            break;
+    }
+    if (ret == MPG123_ERR) {
+        printf("Error decoding: %s\n", mpg123_plain_strerror(ret));
+        return 1;
+    }
+
+    return 0;
+}
+
+mpg123_handle *Player::getDecoder(void) {
+    return this->m_decoder;
+}
+

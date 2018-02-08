@@ -1,7 +1,7 @@
 OPTS = `curl-config --cflags` `curl-config --libs` -lmpg123 -lopenal
 
 openal-test:
-	gcc -ggdb -o openal-test openal-test.c $(OPTS)
+	g++ -ggdb -o openal-test openal-test.cpp player.cpp $(OPTS)
 
 clean:
 	rm -f openal-test
