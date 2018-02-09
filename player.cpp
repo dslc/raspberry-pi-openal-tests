@@ -70,7 +70,7 @@ Player::~Player() {
 }
 
 int Player::tick(void) {
-    off_t ret;
+    off_t ret, input_offset;
     ALenum err;
     long rate;
     int channels, encoding;
