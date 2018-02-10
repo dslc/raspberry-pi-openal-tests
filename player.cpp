@@ -1,5 +1,6 @@
 #include "player.hpp"
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 
 Player::Player() {
     int mpg123_err = MPG123_OK;
@@ -7,6 +8,9 @@ Player::Player() {
     this->m_state = ST_WAIT_FORMAT_KNOWN;
     this->m_sampleRate = 48000;
     this->m_format = AL_FORMAT_STEREO16;
+    this->m_mp3ReadPtr = 0;
+    this->m_mp3WritePtr = 0;
+    memset(this->m_mp3Data, 0, sizeof(this->m_mp3Data));
 
     // Initialize the mp3 decoder
     mpg123_err = mpg123_init();
@@ -70,15 +74,16 @@ Player::~Player() {
 }
 
 int Player::tick(void) {
-    off_t ret, input_offset;
+    off_t ret;
     ALenum err;
     long rate;
     int channels, encoding;
     size_t count;
     static size_t offset;
-    unsigned char out[BLOCK_SIZE];
+    unsigned char out[AL_BUF_SIZE];
     ALint state, queued, processed;
     ALuint buf_id;
+    int mpg123_err;
     int ch;
     static int i = 0;
 
@@ -89,6 +94,15 @@ int Player::tick(void) {
         printf("Exiting on request of user ...\n");
         alSourceStop(this->m_source);
         return 1;
+    }
+    if (this->m_mp3ReadPtr < this->m_mp3WritePtr) {
+        mpg123_err = mpg123_feed(this->m_decoder,
+                (unsigned char *)this->m_mp3Data+this->m_mp3ReadPtr, this->m_mp3WritePtr-this->m_mp3ReadPtr);
+        this->m_mp3ReadPtr = this->m_mp3WritePtr;
+        if (mpg123_err == MPG123_ERR) {
+            fprintf(stderr, "Error feeding MP3 data: %s\n", mpg123_plain_strerror(mpg123_err));
+            return 1;
+        }
     }
     switch (this->m_state) {
         case ST_WAIT_FORMAT_KNOWN:

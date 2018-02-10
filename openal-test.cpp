@@ -12,17 +12,11 @@
 #define UPDATE_QUEUE_INTERVAL 50000 // microseconds
 
 static size_t feeder_tick(char *data, size_t size, size_t nmemb, void *_player) {
-    static size_t total = 0;
-    int err;
     Player *player = (Player *)_player;
     size_t count = size*nmemb;
 
-    err = mpg123_feed(player->getDecoder(), (unsigned char *)data, count);
-    total += count;
-    if (err == MPG123_ERR) {
-        fprintf(stderr, "Error feeding MP3 data: %s\n", mpg123_plain_strerror(err));
-        return 0;
-    }
+    memcpy(player->m_mp3Data+player->m_mp3WritePtr, data, count);
+    player->m_mp3WritePtr += count;
 
     return count;
 }

@@ -8,8 +8,9 @@
  *  With this block size - at 48000 Hz, stereo, with 16-bits / sample - each buffer
  *  will provides .25 seconds of audio.
  */
-#define BLOCK_SIZE 48000
+#define AL_BUF_SIZE 48000
 #define N_BUFFERS 5
+#define MP3_BUF_SIZE 5*1024*1024
 
 typedef enum {
     ST_WAIT_FORMAT_KNOWN,
@@ -24,6 +25,9 @@ class Player {
         ~Player();
         int tick(void);
         mpg123_handle *getDecoder(void);
+
+        char m_mp3Data[MP3_BUF_SIZE];
+        off_t m_mp3ReadPtr, m_mp3WritePtr;
 
     private:
         PlayerState m_state;

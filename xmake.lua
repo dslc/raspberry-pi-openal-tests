@@ -1,15 +1,24 @@
 -- define target
 target("openal-test")
 
-    -- set kind
-    set_kind("binary")
+on_load(
+    function(t)
+        import("lib.detect.find_package")
+        t:add(find_package("curl"))
+        t:add(find_package("mpg123"))
+        t:add(find_package("openal"))
+    end
+)
 
-    -- add linker flags
-    add_ldflags("-lcurl -lmpg123 -lopenal");
+-- set kind
+set_kind("binary")
 
-    -- set output directory
-    set_targetdir('./')
+-- add linker flags
+add_ldflags("-lcurl -lmpg123 -lopenal");
 
-    -- add files
-    add_files("openal-test.c")
+-- set output directory
+set_targetdir('./')
+
+-- add files
+add_files("*.cpp")
 
