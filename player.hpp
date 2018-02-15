@@ -3,6 +3,8 @@
 #include <mpg123.h>
 #include <AL/al.h>
 #include <AL/alc.h>
+#include <memory>
+#include "ring_buffer.hpp"
 
 /**
  *  With this block size - at 48000 Hz, stereo, with 16-bits / sample - each buffer
@@ -25,11 +27,10 @@ class Player {
         ~Player();
         int tick(void);
         mpg123_handle *getDecoder(void);
-
-        char m_mp3Data[MP3_BUF_SIZE];
-        off_t m_mp3ReadPtr, m_mp3WritePtr;
+        RingBuffer *getRingBuffer(void);
 
     private:
+        std::unique<RingBuffer> m_mp3Buf;
         PlayerState m_state;
         ALsizei m_sampleRate;
         ALCdevice *m_device;

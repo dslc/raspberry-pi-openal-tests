@@ -1,6 +1,7 @@
 #include "player.hpp"
 #include <cstdio>
 #include <cstring>
+#include "ring_buffer.hpp"
 
 Player::Player() {
     int mpg123_err = MPG123_OK;
@@ -8,9 +9,7 @@ Player::Player() {
     this->m_state = ST_WAIT_FORMAT_KNOWN;
     this->m_sampleRate = 48000;
     this->m_format = AL_FORMAT_STEREO16;
-    this->m_mp3ReadPtr = 0;
-    this->m_mp3WritePtr = 0;
-    memset(this->m_mp3Data, 0, sizeof(this->m_mp3Data));
+    this->m_mp3Buf = std::make_unique<RingBuffer>(MP3_BUF_SIZE);
 
     // Initialize the mp3 decoder
     mpg123_err = mpg123_init();
@@ -74,12 +73,13 @@ Player::~Player() {
 }
 
 int Player::tick(void) {
-    off_t ret;
+    off_t ret, mp3_seek_offset;
     ALenum err;
     long rate;
     int channels, encoding;
     size_t count;
     static size_t offset;
+    char in[FEED_CHUNK_SIZE];
     unsigned char out[AL_BUF_SIZE];
     ALint state, queued, processed;
     ALuint buf_id;
@@ -87,6 +87,7 @@ int Player::tick(void) {
     int ch;
     static int i = 0;
 
+    RingBuffer *buf = this->getRingBuffer();
     count = 0;
     ret = MPG123_OK;
     ch = fgetc(stdin);
@@ -95,14 +96,21 @@ int Player::tick(void) {
         alSourceStop(this->m_source);
         return 1;
     }
-    if (this->m_mp3ReadPtr < this->m_mp3WritePtr) {
-        mpg123_err = mpg123_feed(this->m_decoder,
-                (unsigned char *)this->m_mp3Data+this->m_mp3ReadPtr, this->m_mp3WritePtr-this->m_mp3ReadPtr);
-        this->m_mp3ReadPtr = this->m_mp3WritePtr;
-        if (mpg123_err == MPG123_ERR) {
-            fprintf(stderr, "Error feeding MP3 data: %s\n", mpg123_plain_strerror(mpg123_err));
-            return 1;
+    if (ch == 'r') {
+        printf("Trying to rewind ...\n");
+        err = mpg123_feedseek(this->m_decoder, 0, SEEK_SET, &mp3_seek_offset);
+        if (err < 0) {
+            fprintf(stderr, "Could not seek to beginning: %s\n", mpg123_plain_strerror(err));
         }
+        else {
+            buf->seek(0);
+        }
+    }
+    count = buf->read(in, sizeof(in));
+    mpg123_err = mpg123_feed(this->m_decoder, (unsigned char *)in, count);
+    if (mpg123_err == MPG123_ERR) {
+        fprintf(stderr, "Error feeding MP3 data: %s\n", mpg123_plain_strerror(mpg123_err));
+        return 1;
     }
     switch (this->m_state) {
         case ST_WAIT_FORMAT_KNOWN:
@@ -226,5 +234,9 @@ int Player::tick(void) {
 
 mpg123_handle *Player::getDecoder(void) {
     return this->m_decoder;
+}
+
+RingBuffer *Player::getRingBuffer(void) {
+    return this->m_mp3Buf.get();
 }
 

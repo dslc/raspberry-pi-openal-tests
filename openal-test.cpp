@@ -14,11 +14,12 @@
 static size_t feeder_tick(char *data, size_t size, size_t nmemb, void *_player) {
     Player *player = (Player *)_player;
     size_t count = size*nmemb;
+    size_t write_count;
+    RingBuffer *buf = player->getRingBuffer();
 
-    memcpy(player->m_mp3Data+player->m_mp3WritePtr, data, count);
-    player->m_mp3WritePtr += count;
+    write_count = buf->write(data, count);
 
-    return count;
+    return write_count;
 }
 
 void usage(char *program_name) {
