@@ -12,6 +12,7 @@
  */
 #define AL_BUF_SIZE 48000
 #define N_BUFFERS 5
+#define FEED_CHUNK_SIZE 2<<14
 #define MP3_BUF_SIZE 5*1024*1024
 
 typedef enum {
@@ -30,7 +31,7 @@ class Player {
         RingBuffer *getRingBuffer(void);
 
     private:
-        std::unique<RingBuffer> m_mp3Buf;
+        std::unique_ptr<RingBuffer> m_mp3Buf;
         PlayerState m_state;
         ALsizei m_sampleRate;
         ALCdevice *m_device;
