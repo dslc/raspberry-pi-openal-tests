@@ -29,6 +29,7 @@ class Player {
         int tick(void);
         mpg123_handle *getDecoder(void);
         RingBuffer *getRingBuffer(void);
+        void getALBufferInfo(ALint *, ALint *, char *);
 
     private:
         std::unique_ptr<RingBuffer> m_mp3Buf;

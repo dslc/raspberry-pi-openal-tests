@@ -232,6 +232,27 @@ int Player::tick(void) {
     return 0;
 }
 
+void Player::getALBufferInfo(ALint *queued, ALint *processed, char *state) {
+    ALint al_state;
+    alGetSourcei(this->m_source, AL_BUFFERS_QUEUED, queued);
+    alGetSourcei(this->m_source, AL_BUFFERS_PROCESSED, processed);
+    alGetSourcei(this->m_source, AL_SOURCE_STATE, &al_state);
+    switch (al_state) {
+        case AL_PLAYING:
+            strcpy(state, "Playing");
+            break;
+        case AL_PAUSED:
+            strcpy(state, "Paused");
+            break;
+        case AL_STOPPED:
+            strcpy(state, "Stopped");
+            break;
+        default:
+            strcpy(state, "Unknown");
+            break;
+    }
+}
+
 mpg123_handle *Player::getDecoder(void) {
     return this->m_decoder;
 }

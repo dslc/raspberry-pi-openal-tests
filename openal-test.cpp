@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include "player.hpp"
 
+#define MAX_DOWNLOAD_SPEED 100000
 #define UPDATE_QUEUE_INTERVAL 50000 // microseconds
 
 static size_t feeder_tick(char *data, size_t size, size_t nmemb, void *_player) {
@@ -57,6 +58,7 @@ int main(int argc, char *argv[]) {
     curl_easy_setopt(curl, CURLOPT_URL, (char *)url);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
+    curl_easy_setopt(curl, CURLOPT_MAX_RECV_SPEED_LARGE, MAX_DOWNLOAD_SPEED);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, feeder_tick);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)player);
 
@@ -87,7 +89,8 @@ int main(int argc, char *argv[]) {
     long suggested_timeout;
     struct timeval timeout;
     fd_set fd_rset, fd_wset, fd_eset;
-
+    ALint al_queued, al_processed;
+    char al_state[24];
     do {
         if (!download_finished) {
             FD_ZERO(&fd_rset);
@@ -99,12 +102,12 @@ int main(int argc, char *argv[]) {
             }
             curl_multi_fdset(curlm, &fd_rset, &fd_wset, &fd_eset, &max_fd);
             if (max_fd == -1) {
+                usleep(suggested_timeout);
+            }
+            else {
                 timeout.tv_sec = suggested_timeout / 1000;
                 timeout.tv_usec = (suggested_timeout % 1000) * 1000;
                 select(max_fd+1, &fd_rset, &fd_wset, &fd_eset, &timeout);
-            }
-            else {
-                usleep(suggested_timeout);
             }
             resm = curl_multi_perform(curlm, &handle_count);
             if (handle_count == 0) {
@@ -117,6 +120,10 @@ int main(int argc, char *argv[]) {
             // 125 ms audio (for 16-bit stereo) - so it's okay to pause before checking
             //  the buffer queue again.
             usleep(UPDATE_QUEUE_INTERVAL);
+        }
+        player->getALBufferInfo(&al_queued, &al_processed, al_state);
+        if (al_processed > 0) {
+            printf("Queued: %d. Processed: %d. State: %s\n", al_queued, al_processed, al_state);
         }
         rc = player->tick();
     } while (!rc);
